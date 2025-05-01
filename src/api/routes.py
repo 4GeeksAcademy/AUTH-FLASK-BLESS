@@ -6,14 +6,15 @@ from api.models import db, User
 from api.utils import generate_sitemap, APIException
 from flask_cors import CORS
 from flask_bcrypt import Bcrypt
-from flask_jwt_extended import create_access_token
+from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
+
 
 
 
 
 api = Blueprint('api', __name__)
 app = Flask(__name__)
-#bcrypt = Bcrypt(app)
+bcrypt = Bcrypt(app)
 # Allow CORS requests to this API
 CORS(api)
 
@@ -24,16 +25,21 @@ def signup():
          return jsonify({"Error": "Data Not Provided"}), 400
     email = data.get("email", None)
     password = data.get("password", None)
-    #hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
-
+    #check for errors in email and password
+    if not email or not password:
+        return jsonify({"Error": "Email and Password are required"}), 400
+    #check if a user already exist 
+    existing_user = User.query.filter_by(email = email, password = hashed_password).first()
+    if existing_user:
+        return jsonify({"Msg": "User already exist"}), 409
+    
+    hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
     #Create new user with the data obtained
-    new_user = User(email = email, password = password)
+    new_user = User(email = email, password = hashed_password, is_active = True)
 
     db.session.add(new_user)
     db.session.commit()
-    return jsonify({"msg": "New user created"})
-
-    
+    return jsonify({"msg": "New user created"}), 201
 
 
 @api.route('/login', methods=['POST'])
@@ -43,15 +49,26 @@ def create_token():
          return jsonify({"Error": "Data Not Provided"}), 400
     email = data.get("email", None)
     password = data.get("password", None)
+    #Here we can also check for errors in email and password before proceeding(BEST PRACTICE!)
 
-     # Query your database for email and password
-    user = User.query.filter_by(email = email, password = password).first()
-    if user is None:
-        # The user was not found on the database
-        return jsonify({"msg": "Bad email or password"}), 401
+     # Query your database for email and password to check if user exists in the User db table(model)
+    user = User.query.filter_by(email = email).first()
+    if not user or not bcrypt.check_password_hash(user.password, password):
+        return jsonify({"msg": "Incorrcet email or password"}), 401
     
     # Create a new token with the user id inside
     access_token = create_access_token(identity=user.id)
-    return jsonify({ "token": access_token, "user_id": user.id })
+    return jsonify({ "token": access_token, "user_id": user.id }), 201
+
+
+# Protect a route with jwt_required, which will kick out requests without a valid JWT
+@app.route("/user", methods=["GET"])
+@jwt_required()
+def get_user():
+    # Access the identity of the current user with get_jwt_identity
+    current_user_id = get_jwt_identity()
+    user = User.query.get(current_user_id)
+    
+    return jsonify({"id": user.id, "email": user.email}), 200
 
     
