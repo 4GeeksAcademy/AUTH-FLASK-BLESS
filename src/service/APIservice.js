@@ -20,7 +20,12 @@ export const createSignup = async (dispatch, info) => {
     );
     if(response.status === 201) {
         const data = await response.json()
+        console.log(data)
         dispatch({type: "signup", payload:data.user})
+    } 
+    else if(response.status === 400) {
+        const errorMsg = await response.json()
+        alert(errorMsg.Error)
     } else {
         const errorData = await response.json();
         console.error("Signup failed:", errorData);
@@ -35,4 +40,4 @@ export const createSignup = async (dispatch, info) => {
 };
 
 
-export const createLogin 
+//export const createLogin 
