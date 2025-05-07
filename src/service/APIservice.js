@@ -24,6 +24,10 @@ export const createSignup = async (dispatch, info) => {
     } else {
         const errorData = await response.json();
         console.error("Signup failed:", errorData);
+        alert(errorData.Msg)
+        return {
+            error: true, 
+        }
     }
 } catch (error) {
     console.error("Network error:", error);
